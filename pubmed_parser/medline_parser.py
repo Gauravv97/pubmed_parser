@@ -78,6 +78,33 @@ def parse_doi(pubmed_article):
             doi = ""
     return doi
 
+def parse_pmc(pubmed_article):
+    """
+    A function to parse PMC from a given Pubmed Article tree
+
+    Parameters
+    ----------
+    pubmed_article: Element
+        The lxml node pointing to a medline document
+
+    Returns
+    -------
+    pmc: str
+        A string of PMC parsed from a given ``pubmed_article``
+    """
+    
+    article_ids = pubmed_article.find("PubmedData/ArticleIdList")
+    if article_ids is not None:
+        pmc = article_ids.find('ArticleId[@IdType="pmc"]')
+        pmc = (
+            (pmc.text.strip() if pmc.text is not None else "")
+            if pmc is not None
+            else ""
+        )
+    else:
+        pmc = ""
+    return pmc
+
 
 def parse_mesh_terms(medline):
     """
@@ -200,19 +227,16 @@ def parse_other_id(medline):
     other_id: str
         String of semi-colon separated Other IDs found in the document
     """
-    pmc = ""
+    
     other_id = list()
     oids = medline.findall("OtherID")
     if oids is not None:
         for oid in oids:
-            if "PMC" in oid.text:
-                pmc = oid.text
-            else:
-                other_id.append(oid.text)
+            other_id.append(oid.text)
         other_id = "; ".join(other_id)
     else:
         other_id = ""
-    return {"pmc": pmc, "other_id": other_id}
+    return { "other_id": other_id}
 
 
 def parse_journal_info(medline):
@@ -517,16 +541,6 @@ def parse_article_info(
     else:
         volume = ""
 
-    if article.find("Language") is not None:
-        languages = ";".join([language.text for language in article.findall("Language")])
-    else:
-        languages = ""
-
-    if article.find("VernacularTitle") is not None:
-        vernacular_title = stringify_children(article.find("VernacularTitle")).strip() or ""
-    else:
-        vernacular_title = ""
-
     if article.find("Journal/JournalIssue/Issue") is not None:
         issue = article.find("Journal/JournalIssue/Issue").text or ""
     else:
@@ -587,6 +601,7 @@ def parse_article_info(
 
     pmid = parse_pmid(pubmed_article)
     doi = parse_doi(pubmed_article)
+    pmc = parse_pmc(pubmed_article)
     references = parse_references(pubmed_article, reference_list)
     pubdate = date_extractor(journal, year_info_only)
     mesh_terms = parse_mesh_terms(medline)
@@ -608,11 +623,10 @@ def parse_article_info(
         "publication_types": publication_types,
         "chemical_list": chemical_list,
         "keywords": keywords,
+        "pmc": pmc,
         "doi": doi,
         "references": references,
         "delete": False,
-        "languages": languages,
-        "vernacular_title": vernacular_title
     }
     if not author_list:
         dict_out.update({"affiliations": affiliations})
@@ -706,8 +720,6 @@ def parse_medline_xml(
             "references": np.nan,
             "issue": np.nan,
             "pages": np.nan,
-            "languages": np.nan,
-            "vernacular_title": np.nan
         }
         for p in delete_citations
     ]
