@@ -683,48 +683,20 @@ def parse_medline_xml(
     --------
     >>> pubmed_parser.parse_medline_xml('data/pubmed20n0014.xml.gz')
     """
-    tree = read_xml(path)
-    medline_citations = tree.findall(".//MedlineCitationSet/MedlineCitation")
-    if len(medline_citations) == 0:
-        medline_citations = tree.findall(".//PubmedArticle")
-    article_list = list(
-        map(
-            lambda m: parse_article_info(
-                m, year_info_only, nlm_category, author_list, reference_list
-            ),
-            medline_citations,
-        )
-    )
-    delete_citations = tree.findall(".//DeleteCitation/PMID")
-    dict_delete = [
-        {
-            "title": np.nan,
-            "abstract": np.nan,
-            "journal": np.nan,
-            "authors": np.nan,
-            "affiliations": np.nan,
-            "pubdate": np.nan,
-            "pmid": p.text.strip(),
-            "doi": np.nan,
-            "other_id": np.nan,
-            "pmc": np.nan,
-            "mesh_terms": np.nan,
-            "keywords": np.nan,
-            "publication_types": np.nan,
-            "chemical_list": np.nan,
-            "delete": True,
-            "medline_ta": np.nan,
-            "nlm_unique_id": np.nan,
-            "issn_linking": np.nan,
-            "country": np.nan,
-            "references": np.nan,
-            "issue": np.nan,
-            "pages": np.nan,
-        }
-        for p in delete_citations
-    ]
-    article_list.extend(dict_delete)
-    return article_list
+    with gzip.open(path, "rb") as f:
+        for event, element in etree.iterparse(f, events=("end",)):
+            if element.tag == "PubmedArticle":
+                res = parse_article_info(
+                    element,
+                    year_info_only,
+                    nlm_category,
+                    author_list,
+                    reference_list,
+                    parse_subs=parse_downto_mesh_subterms
+                )
+                res['grant_ids'] = parse_grant_id(element)
+                element.clear()
+                yield res
 
 
 def parse_medline_grant_id(path):
