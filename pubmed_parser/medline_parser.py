@@ -692,8 +692,7 @@ def parse_medline_xml(
                     year_info_only,
                     nlm_category,
                     author_list,
-                    reference_list,
-                    parse_subs=parse_downto_mesh_subterms
+                    reference_list
                 )
                 res['grant_ids'] = parse_grant_id(element)
                 element.clear()
